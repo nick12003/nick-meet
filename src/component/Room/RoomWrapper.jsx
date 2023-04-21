@@ -21,6 +21,8 @@ import {
   onDisconnect,
 } from "firebase/database";
 
+import Loading from "../Loading";
+
 const generateColor = () =>
   "#" + Math.floor(Math.random() * 16777215).toString(16);
 
@@ -51,6 +53,7 @@ export const useRoomContext = () => {
 };
 
 const initialState = {
+  loading: true,
   roomId: null,
   users: {},
   stream: null,
@@ -81,6 +84,7 @@ const RoomReducer = (state, action) => {
       return {
         ...state,
         roomId: payload.roomId,
+        loading: false,
         currentUser: {
           ...state.currentUser,
           displayName: payload.displayName,
@@ -91,11 +95,18 @@ const RoomReducer = (state, action) => {
     case "USER_JOINED":
       const isCurrentUser = state.currentUser.userId === payload.userId;
       let uJpc = undefined;
+      let remoteStream = undefined;
       if (state.stream && !isCurrentUser) {
         uJpc = new RTCPeerConnection(servers);
         state.stream.getTracks().forEach((track) => {
           uJpc.addTrack(track, state.stream);
         });
+        remoteStream = new MediaStream();
+        uJpc.ontrack = (event) => {
+          event.streams[0].getTracks().forEach((track) => {
+            remoteStream.addTrack(track);
+          });
+        };
         const [receiverId, createId] = [
           payload.userId,
           state.currentUser.userId,
@@ -135,6 +146,7 @@ const RoomReducer = (state, action) => {
           [payload.userId]: {
             ...payload,
             peerConnection: uJpc,
+            remoteStream,
             currentUser: isCurrentUser,
           },
         },
@@ -278,7 +290,7 @@ const RoomWrapper = () => {
     } else {
       roomRef = push(ref(db));
     }
-    console.log("enter room ", roomRef.key);
+
     const usersRef = child(roomRef.ref, "users");
     const currentAvatarColor = generateColor();
     const userRef = push(usersRef, {
@@ -292,7 +304,6 @@ const RoomWrapper = () => {
       avatarColor: currentAvatarColor,
     });
     onDisconnect(userRef.ref).remove();
-
     dispatch({
       type: "JOINED_ROOM",
       payload: {
@@ -305,9 +316,6 @@ const RoomWrapper = () => {
     });
 
     onChildAdded(child(userRef.ref, "offers"), (snapshot) => {
-      console.group("user offers");
-      console.log(snapshot.key);
-      console.log(snapshot.val());
       const offer = snapshot.val();
       if (offer) {
         dispatch({
@@ -315,13 +323,9 @@ const RoomWrapper = () => {
           payload: offer,
         });
       }
-      console.groupEnd("user offers");
     });
 
     onChildAdded(child(userRef.ref, "offerCandidates"), (snapshot) => {
-      console.group("user offerCandidates");
-      console.log(snapshot.key);
-      console.log(snapshot.val());
       const candidate = snapshot.val();
       if (candidate) {
         dispatch({
@@ -329,13 +333,9 @@ const RoomWrapper = () => {
           payload: candidate,
         });
       }
-      console.groupEnd("user offerCandidates");
     });
 
     onChildAdded(child(userRef.ref, "answers"), (snapshot) => {
-      console.group("user answers");
-      console.log(snapshot.key);
-      console.log(snapshot.val());
       const answer = snapshot.val();
       if (answer) {
         dispatch({
@@ -343,13 +343,9 @@ const RoomWrapper = () => {
           payload: answer,
         });
       }
-      console.groupEnd("user answers");
     });
 
     onChildAdded(child(userRef.ref, "answerCandidates"), (snapshot) => {
-      console.group("user answerCandidates");
-      console.log(snapshot.key);
-      console.log(snapshot.val());
       const candidate = snapshot.val();
       if (candidate) {
         dispatch({
@@ -357,13 +353,9 @@ const RoomWrapper = () => {
           payload: candidate,
         });
       }
-      console.groupEnd("user answerCandidates");
     });
 
     onChildAdded(usersRef, (userInfo) => {
-      console.group("users onChildAdded");
-      console.log(userInfo.key);
-      console.log(userInfo.val());
       const { control, ...rest } = userInfo.val();
       dispatch({
         type: "USER_JOINED",
@@ -394,7 +386,6 @@ const RoomWrapper = () => {
           },
         });
       });
-      console.groupEnd("users onChildAdded");
     });
   };
 
@@ -459,7 +450,7 @@ const RoomWrapper = () => {
         leavedRoom,
       }}
     >
-      <Outlet />
+      {state.loading ? <Loading /> : <Outlet />}
     </RoomContext.Provider>
   );
 };

@@ -49,22 +49,7 @@ const Room = () => {
   const remoteList = useMemo(() => {
     return Object.entries(users)
       .filter(([, { currentUser }]) => !currentUser)
-      .map(([, userInfo]) => {
-        const pc = userInfo.peerConnection;
-        const remoteStream = new MediaStream();
-        if (pc) {
-          pc.ontrack = (event) => {
-            console.log("onTrack", event);
-            event.streams[0].getTracks().forEach((track) => {
-              remoteStream.addTrack(track);
-            });
-          };
-        }
-        return {
-          ...userInfo,
-          remoteStream,
-        };
-      });
+      .map(([, userInfo]) => userInfo);
   }, [users]);
 
   return (
