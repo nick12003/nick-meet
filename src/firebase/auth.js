@@ -23,31 +23,54 @@ const logout = () => {
   signOut(auth);
 };
 
-const anonymousLogin = async (nickName, callback) => {
-  const result = await signInAnonymously(auth).then((response) => {
-    updateProfile(auth.currentUser, {
-      displayName: nickName,
+const anonymousLogin = async (nickName, callback, finalCallback) => {
+  try {
+    await signInAnonymously(auth).then((response) => {
+      updateProfile(auth.currentUser, {
+        displayName: nickName,
+      });
+
+      return response;
     });
-
-    return response;
-  });
-  if (callback) {
-    callback();
+    if (callback) {
+      callback();
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    if (finalCallback) {
+      finalCallback();
+    }
   }
 };
 
-const googleLogin = async (callback) => {
-  const result = await signInWithPopup(auth, googleProvide);
-  if (callback) {
-    callback();
+const googleLogin = async (callback, finalCallback) => {
+  try {
+    await signInWithPopup(auth, googleProvide);
+    if (callback) {
+      callback();
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    if (finalCallback) {
+      finalCallback();
+    }
   }
 };
 
-const githubLogin = async (callback) => {
-  const result = await signInWithPopup(auth, githubProvide);
-  console.log("githubLogin", result);
-  if (callback) {
-    callback();
+const githubLogin = async (callback, finalCallback) => {
+  try {
+    await signInWithPopup(auth, githubProvide);
+    if (callback) {
+      callback();
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    if (finalCallback) {
+      finalCallback();
+    }
   }
 };
 

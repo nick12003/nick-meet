@@ -5,10 +5,13 @@ import classNames from "classnames";
 
 import { googleLogin, githubLogin, anonymousLogin } from "@/firebase/auth";
 import { setNickName } from "@/redux/user";
+import useCompositions from "@/hook/useCompositions";
 
 import { ReactComponent as GoogleIcon } from "@/assets/svg/Google.svg";
 import { ReactComponent as AppleIcon } from "@/assets/svg/Apple.svg";
 import { ReactComponent as GitHubIcon } from "@/assets/svg/GitHub.svg";
+
+import Loading from "./Loading";
 
 const LoginItem = ({ text, Icon, onClick }) => {
   return (
@@ -25,41 +28,57 @@ const LoginItem = ({ text, Icon, onClick }) => {
 };
 
 const Login = () => {
-  const [input, setInput] = useState({
-    text: "",
-    changed: false,
-  });
+  const [changed, setChanged] = useState(false);
+  const [loading, setLoading] = useState(false);
   const isLogin = useSelector((state) => !!state.user.accessToken);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { value, onChange, onKeyDown, onComposition } = useCompositions(
+    "",
+    loginInAnonymously
+  );
 
   if (isLogin) {
     return <Navigate to="/" />;
   }
 
-  const loginInAnonymously = () => {
-    if (!input.text) {
-      setInput((pre) => ({ ...pre, changed: true }));
+  function loginInAnonymously(text) {
+    if (!text) {
+      setChanged(true);
       return;
     }
-
-    anonymousLogin(input.text, () => {
-      dispatch(setNickName(input.text));
-      navigate("/");
-    });
-  };
+    setLoading(true);
+    anonymousLogin(
+      text,
+      () => {
+        dispatch(setNickName(text));
+        navigate("/");
+      },
+      () => setLoading(false)
+    );
+  }
 
   const loginInGoogle = () => {
-    googleLogin(() => {
-      navigate("/");
-    });
+    setLoading(true);
+    googleLogin(
+      () => {
+        navigate("/");
+      },
+      () => setLoading(false)
+    );
   };
 
   const loginInGithub = () => {
-    githubLogin(() => {
-      navigate("/");
-    });
+    setLoading(true);
+    githubLogin(
+      () => {
+        navigate("/");
+      },
+      () => setLoading(false)
+    );
   };
+
+  if (loading) return <Loading />;
 
   return (
     <div className="h-full flex justify-center items-center ">
@@ -73,22 +92,20 @@ const Login = () => {
             className={classNames(
               "h-12 px-4 border-2  border-primary rounded-tl-2xl rounded-bl-2xl outline-none",
               {
-                "border-red-500": !input.text && input.changed,
+                "border-red-500": !value && changed,
               }
             )}
-            value={input.text}
-            onChange={(e) => {
-              setInput((pre) => ({
-                ...pre,
-                text: e.target.value,
-              }));
-            }}
+            value={value}
+            onChange={onChange}
+            onKeyDown={onKeyDown}
+            onCompositionStart={onComposition}
+            onCompositionEnd={onComposition}
           />
           <button
             className={classNames(
               "h-12 py-2 px-4 bg-white border-2 border-l-0 border-primary rounded-tr-2xl rounded-br-2xl outline-none hover:bg-primary hover:text-white"
             )}
-            onClick={loginInAnonymously}
+            onClick={() => loginInAnonymously(value)}
           >
             匿名登入
           </button>

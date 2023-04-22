@@ -3,8 +3,6 @@ import classNames from "classnames";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
 
-import { useRoomContext } from "./RoomWrapper";
-
 import { ReactComponent as MicMuteIcon } from "@/assets/svg/MicMute.svg";
 import { ReactComponent as VideoOffIcon } from "@/assets/svg/VideoOff.svg";
 
@@ -12,7 +10,9 @@ import { ReactComponent as CloseIcon } from "@/assets/svg/Close.svg";
 import { ReactComponent as CopyIcon } from "@/assets/svg/Copy.svg";
 import { ReactComponent as SendIcon } from "@/assets/svg/Send.svg";
 
+import { useRoomContext } from "./RoomWrapper";
 import Avatar from "../Avatar";
+import useCompositions from "@/hook/useCompositions";
 
 export const Title = {
   ROOM_INFO: "房間資訊",
@@ -29,8 +29,13 @@ const Drawer = () => {
     ...roomInfo
   } = useRoomContext();
   const [messageList, setMessageList] = useState([]);
-  const [text, setText] = useState("");
   const messageListRef = useRef();
+
+  const { value, onChange, onKeyDown, onComposition } = useCompositions(
+    "",
+    handleSendText,
+    true
+  );
 
   useEffect(() => {
     Object.entries(users).forEach(
@@ -51,11 +56,10 @@ const Drawer = () => {
     );
   }, [users]);
 
-  const handleSendText = useCallback(() => {
+  function handleSendText(text) {
     if (!text) {
       return;
     }
-    setText("");
     setMessageList((pre) => [
       ...pre,
       {
@@ -70,7 +74,7 @@ const Drawer = () => {
       if (currentUser || !localChannel) return;
       localChannel.send(text);
     });
-  }, [text]);
+  }
 
   useEffect(() => {
     if (messageListRef.current) {
@@ -162,20 +166,18 @@ const Drawer = () => {
             </div>
             <div className="flex items-center relative">
               <input
-                value={text}
                 type="text"
                 placeholder="傳送訊息給所有人"
                 className=" w-full px-4 py-2 bg-slate-200 outline-none rounded-2xl relative"
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleSendText();
-                  }
-                }}
+                value={value}
+                onChange={onChange}
+                onKeyDown={onKeyDown}
+                onCompositionStart={onComposition}
+                onCompositionEnd={onComposition}
               />
               <button
                 className="absolute right-0 -translate-x-1/2 text-2xl cursor-pointer hover:text-primary"
-                onClick={() => handleSendText()}
+                onClick={() => handleSendText(value)}
               >
                 <SendIcon />
               </button>

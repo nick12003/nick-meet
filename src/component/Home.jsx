@@ -1,26 +1,37 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { getDatabase, ref, get, child } from "firebase/database";
 import { toast, Toaster } from "react-hot-toast";
 
 import { logout } from "@/firebase/auth";
+import useCompositions from "@/hook/useCompositions";
 
 import Avatar from "./Avatar";
 
 const db = getDatabase();
 
 const Home = () => {
-  const [input, setInput] = useState({
-    text: "",
-    changed: false,
-  });
   const navigate = useNavigate();
   const { displayName, photoURL, avatarColor } = useSelector(
     (state) => state.user
   );
 
-  // console.log("render Home", displayName);
+  const { value, onChange, onKeyDown, onComposition } = useCompositions(
+    "",
+    handleEnterRoom
+  );
+
+  async function handleEnterRoom(roomId) {
+    if (roomId) {
+      const snapshot = await get(child(ref(db), roomId));
+      if (!snapshot.exists()) {
+        toast.error(`找不到房間: ${roomId}`);
+        return;
+      }
+      navigate(`/room/${roomId}`);
+    }
+  }
+
   return (
     <div className="h-full flex justify-center items-center">
       <Toaster />
@@ -49,26 +60,15 @@ const Home = () => {
             type="text"
             placeholder="輸入房間ID"
             className="h-14 px-4  border-2 border-primary rounded-tl-2xl rounded-bl-2xl outline-none"
-            value={input.text}
-            onChange={(e) => {
-              setInput((pre) => ({
-                ...pre,
-                text: e.target.value,
-              }));
-            }}
+            value={value}
+            onChange={onChange}
+            onKeyDown={onKeyDown}
+            onCompositionStart={onComposition}
+            onCompositionEnd={onComposition}
           />
           <button
             className="h-14 py-2 px-4 bg-white border-2 border-l-0 border-primary rounded-tr-2xl rounded-br-2xl outline-none hover:bg-primary hover:text-white"
-            onClick={async () => {
-              if (input.text) {
-                const snapshot = await get(child(ref(db), input.text));
-                if (!snapshot.exists()) {
-                  toast.error(`找不到房間: ${input.text}`);
-                  return;
-                }
-                navigate(`/room/${input.text}`);
-              }
-            }}
+            onClick={() => handleEnterRoom(value)}
           >
             加入
           </button>
