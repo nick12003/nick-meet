@@ -72,7 +72,7 @@ const initialState = {
 };
 
 const RoomReducer = (state, action) => {
-  const { payload } = action;
+  const { payload, dispatch } = action;
   switch (action.type) {
     case "SET_STREAM":
       return {
@@ -96,11 +96,26 @@ const RoomReducer = (state, action) => {
       const isCurrentUser = state.currentUser.userId === payload.userId;
       let uJpc = undefined;
       let remoteStream = undefined;
+      let localChannel = undefined;
       if (state.stream && !isCurrentUser) {
         uJpc = new RTCPeerConnection(servers);
+
+        uJpc.ondatachannel = (event) => {
+          dispatch({
+            type: "SET_DATACHANNEL",
+            payload: {
+              channel: event.channel,
+              userId: payload.userId,
+            },
+          });
+        };
+
+        // 設定本地串流
         state.stream.getTracks().forEach((track) => {
           uJpc.addTrack(track, state.stream);
         });
+
+        //設定遠端串流
         remoteStream = new MediaStream();
         uJpc.ontrack = (event) => {
           event.streams[0].getTracks().forEach((track) => {
@@ -122,6 +137,11 @@ const RoomReducer = (state, action) => {
               });
             }
           };
+
+          localChannel = uJpc.createDataChannel("message-channel", {
+            ordered: true,
+          });
+          localChannel.binaryType = "arraybuffer";
 
           const setOffer = async () => {
             const offerDescription = await uJpc.createOffer();
@@ -148,9 +168,31 @@ const RoomReducer = (state, action) => {
             ...payload,
             peerConnection: uJpc,
             remoteStream,
+            localChannel,
             currentUser: isCurrentUser,
           },
         },
+      };
+    case "SET_DATACHANNEL":
+      return {
+        ...state,
+        users: Object.entries(state.users).reduce((pre, [userId, userInfo]) => {
+          if (userId === payload.userId) {
+            const localChannel = payload.channel;
+            localChannel.binaryType = "arraybuffer";
+            return {
+              ...pre,
+              [userId]: {
+                ...userInfo,
+                localChannel,
+              },
+            };
+          }
+          return {
+            ...pre,
+            [userId]: userInfo,
+          };
+        }, {}),
       };
     case "USER_LEAVED":
       return {
@@ -387,6 +429,7 @@ const RoomWrapper = () => {
           ...rest,
           userId: userInfo.key,
         },
+        dispatch,
       });
       const listenUserChangeSetting = onChildChanged(
         child(userInfo.ref, "control"),

@@ -49,6 +49,9 @@ const Video = ({
         className="h-full w-full relative object-cover"
         ref={videoRef}
         autoPlay
+        style={{
+          transform: currentUser ? "rotateY(180deg)" : undefined,
+        }}
       />
     </div>
   );

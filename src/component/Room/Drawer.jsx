@@ -1,4 +1,7 @@
+import { useState, useCallback, useEffect, useRef } from "react";
 import classNames from "classnames";
+import { format } from "date-fns";
+import { zhCN } from "date-fns/locale";
 
 import { useRoomContext } from "./RoomWrapper";
 
@@ -25,6 +28,55 @@ const Drawer = () => {
     currentUser,
     ...roomInfo
   } = useRoomContext();
+  const [messageList, setMessageList] = useState([]);
+  const [text, setText] = useState("");
+  const messageListRef = useRef();
+
+  useEffect(() => {
+    Object.entries(users).forEach(
+      ([, { userId, displayName, localChannel, currentUser }]) => {
+        if (currentUser || !localChannel) return;
+        localChannel.onmessage = (event) => {
+          setMessageList((pre) => [
+            ...pre,
+            {
+              userId,
+              displayName,
+              time: new Date().getTime(),
+              text: event.data,
+            },
+          ]);
+        };
+      }
+    );
+  }, [users]);
+
+  const handleSendText = useCallback(() => {
+    if (!text) {
+      return;
+    }
+    setText("");
+    setMessageList((pre) => [
+      ...pre,
+      {
+        userId: currentUser.userId,
+        displayName: "你",
+        time: new Date().getTime(),
+        text,
+      },
+    ]);
+
+    Object.entries(users).forEach(([, { localChannel, currentUser }]) => {
+      if (currentUser || !localChannel) return;
+      localChannel.send(text);
+    });
+  }, [text]);
+
+  useEffect(() => {
+    if (messageListRef.current) {
+      messageListRef.current.scrollTo(0, messageListRef.current.scrollHeight);
+    }
+  }, [messageList]);
 
   return (
     <div
@@ -45,7 +97,7 @@ const Drawer = () => {
           <CloseIcon />
         </button>
       </div>
-      <div className="flex flex-col flex-grow p-4">
+      <div className="flex flex-col flex-grow p-4 overflow-y-auto">
         {tab === "ROOM_INFO" && (
           <div className="flex flex-col space-y-4">
             <div>{`房間ID : ${roomInfo.roomId}`}</div>
@@ -89,14 +141,42 @@ const Drawer = () => {
         )}
         {tab === "CHAT" && (
           <>
-            <div className="flex-grow"></div>
+            <div
+              className="flex-grow flex flex-col space-y-2 text-sm overflow-y-auto pb-4"
+              ref={messageListRef}
+            >
+              {messageList.map(({ userId, displayName, time, text }) => (
+                <div
+                  className="flex flex-col space-y-1"
+                  key={`${userId}-${time}`}
+                >
+                  <div className="flex space-x-2">
+                    <div>{displayName}</div>
+                    <div className=" text-gray-400">
+                      {format(time, "aa hh:mm", { locale: zhCN })}
+                    </div>
+                  </div>
+                  <div className="text-black">{text}</div>
+                </div>
+              ))}
+            </div>
             <div className="flex items-center relative">
               <input
+                value={text}
                 type="text"
                 placeholder="傳送訊息給所有人"
                 className=" w-full px-4 py-2 bg-slate-200 outline-none rounded-2xl relative"
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSendText();
+                  }
+                }}
               />
-              <button className="absolute right-0 -translate-x-1/2 text-2xl cursor-pointer hover:text-primary">
+              <button
+                className="absolute right-0 -translate-x-1/2 text-2xl cursor-pointer hover:text-primary"
+                onClick={() => handleSendText()}
+              >
                 <SendIcon />
               </button>
             </div>
