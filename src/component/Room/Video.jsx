@@ -17,7 +17,6 @@ const Video = ({
 
   useEffect(() => {
     if (videoRef.current) {
-      console.log("change stream", displayName);
       videoRef.current.srcObject = stream;
     }
   }, [stream]);

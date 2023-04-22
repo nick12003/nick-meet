@@ -16,8 +16,16 @@ const Layout = () => {
   useEffect(() => {
     const listen = onAuthStateChange(
       (user) => {
-        const { accessToken, displayName, providerId, providerData, photoURL, isAnonymous, uid } =
-          user;
+        const {
+          accessToken,
+          displayName,
+          providerId,
+          providerData,
+          photoURL,
+          isAnonymous,
+          uid,
+          avatarColor,
+        } = user;
         dispatch(
           login({
             accessToken,
@@ -27,6 +35,7 @@ const Layout = () => {
             photoURL,
             isAnonymous,
             uid,
+            avatarColor,
           })
         );
       },
@@ -41,7 +50,7 @@ const Layout = () => {
   }, []);
 
   return (
-    <div className='h-screen w-screen text-primary  bg-gradient-radial from-primary/40 from-5% via-primary/60 via-20% to-primary to-90%'>
+    <div className="h-screen w-screen text-primary  bg-gradient-radial from-primary/40 from-5% via-primary/60 via-20% to-primary to-90%">
       {initialAuth ? <Loading /> : <Outlet />}
     </div>
   );

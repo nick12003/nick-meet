@@ -65,11 +65,15 @@ const Drawer = () => {
             {Object.entries(users).map(
               ([
                 userId,
-                { photoURL, displayName, micMute, stopScreenShare, videoOff },
+                { photoURL, displayName, micMute, avatarColor, videoOff },
               ]) => {
                 return (
                   <div className="flex items-center space-x-3" key={userId}>
-                    <Avatar photoURL={photoURL} displayName={displayName} />
+                    <Avatar
+                      photoURL={photoURL}
+                      displayName={displayName}
+                      avatarColor={avatarColor}
+                    />
                     <div>
                       {displayName} {userId === currentUser.userId && "(You)"}
                     </div>

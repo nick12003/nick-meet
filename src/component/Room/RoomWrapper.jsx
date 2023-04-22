@@ -23,9 +23,6 @@ import {
 
 import Loading from "../Loading";
 
-const generateColor = () =>
-  "#" + Math.floor(Math.random() * 16777215).toString(16);
-
 const db = getDatabase();
 
 const servers = {
@@ -90,6 +87,7 @@ const RoomReducer = (state, action) => {
           displayName: payload.displayName,
           photoURL: payload.photoURL,
           userId: payload.userId,
+          avatarColor: payload.avatarColor,
         },
       };
     case "USER_JOINED":
@@ -258,7 +256,9 @@ const RoomWrapper = () => {
   const [state, dispatch] = useReducer(RoomReducer, initialState);
   const params = useParams();
 
-  const { displayName, photoURL } = useSelector((state) => state.user);
+  const { displayName, photoURL, avatarColor } = useSelector(
+    (state) => state.user
+  );
 
   const createStream = async (config) => {
     try {
@@ -282,17 +282,12 @@ const RoomWrapper = () => {
 
     if (roomId) {
       const snapshot = await get(child(ref(db), roomId));
-      if (!snapshot.exists()) {
-        console.log("not found");
-        return;
-      }
       roomRef = snapshot.ref;
     } else {
       roomRef = push(ref(db));
     }
 
     const usersRef = child(roomRef.ref, "users");
-    const currentAvatarColor = generateColor();
     const userRef = push(usersRef, {
       displayName,
       photoURL,
@@ -301,7 +296,7 @@ const RoomWrapper = () => {
         videoOff: false,
         stopScreenShare: false,
       },
-      avatarColor: currentAvatarColor,
+      avatarColor,
     });
     onDisconnect(userRef.ref).remove();
     dispatch({
@@ -311,7 +306,7 @@ const RoomWrapper = () => {
         userId: userRef.key,
         displayName,
         photoURL,
-        avatarColor: currentAvatarColor,
+        avatarColor,
       },
     });
 
@@ -363,12 +358,9 @@ const RoomWrapper = () => {
           ...control,
           ...rest,
           userId: userInfo.key,
-          avatarColor: generateColor(),
         },
       });
       onChildChanged(child(userInfo.ref, "control"), (changeSetting) => {
-        console.group(userInfo.key, "onChildChanged");
-        console.log(changeSetting.val());
         dispatch({
           type: "UPDATE_USERS",
           payload: {
@@ -376,7 +368,6 @@ const RoomWrapper = () => {
             userId: userInfo.key,
           },
         });
-        console.groupEnd(userInfo.key, "onChildChanged");
       });
       onChildRemoved(userInfo.ref, () => {
         dispatch({

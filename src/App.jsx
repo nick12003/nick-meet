@@ -8,6 +8,7 @@ import Home from "@/component/Home";
 import Room from "@/component/Room";
 import RoomWrapper from "@/component/Room/RoomWrapper";
 import Login from "@/component/Login";
+import NotFount from "@/component/NotFound";
 
 const router = createBrowserRouter([
   {
@@ -42,6 +43,10 @@ const router = createBrowserRouter([
       {
         path: "/Login",
         element: <Login />,
+      },
+      {
+        path: "*",
+        element: <NotFount />,
       },
     ],
   },

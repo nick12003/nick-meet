@@ -31,7 +31,6 @@ const anonymousLogin = async (nickName, callback) => {
 
     return response;
   });
-  console.log("anonymousLogin", result);
   if (callback) {
     callback();
   }
@@ -39,7 +38,6 @@ const anonymousLogin = async (nickName, callback) => {
 
 const googleLogin = async (callback) => {
   const result = await signInWithPopup(auth, googleProvide);
-  console.log("googleLogin", result);
   if (callback) {
     callback();
   }

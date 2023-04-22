@@ -9,6 +9,7 @@ const initialState = {
   photoURL: null,
   isAnonymous: false,
   uid: null,
+  avatarColor: null,
 };
 
 const userSlice = createSlice({
@@ -16,7 +17,12 @@ const userSlice = createSlice({
   initialState: initialState,
   reducers: {
     login: (state, { payload }) => {
-      return { ...state, ...payload, initialAuth: false };
+      return {
+        ...state,
+        ...payload,
+        avatarColor: "#" + Math.floor(Math.random() * 16777215).toString(16),
+        initialAuth: false,
+      };
     },
     setNickName: (state, { payload }) => {
       return { ...state, displayName: payload };
