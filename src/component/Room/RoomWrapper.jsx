@@ -4,6 +4,7 @@ import {
   createContext,
   useReducer,
   useCallback,
+  useRef,
 } from "react";
 import { Outlet, useParams, Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -67,6 +68,7 @@ const initialState = {
     isOpen: false,
     tab: null,
   },
+  listens: [],
 };
 
 const RoomReducer = (state, action) => {
@@ -105,6 +107,7 @@ const RoomReducer = (state, action) => {
             remoteStream.addTrack(track);
           });
         };
+        // 透過排序決定要由誰發起offer
         const [receiverId, createId] = [
           payload.userId,
           state.currentUser.userId,
@@ -153,7 +156,17 @@ const RoomReducer = (state, action) => {
       return {
         ...state,
         users: Object.entries(state.users).reduce((pre, [userId, userInfo]) => {
-          if (userId === payload.userId) return pre;
+          if (userId === payload.userId) {
+            if (userInfo.peerConnection) {
+              userInfo.peerConnection.close();
+            }
+            if (userInfo.remoteStream) {
+              userInfo.remoteStream
+                ?.getTracks()
+                .forEach((track) => track.stop());
+            }
+            return pre;
+          }
           return {
             ...pre,
             [userId]: userInfo,
@@ -247,13 +260,19 @@ const RoomReducer = (state, action) => {
           isOpen: false,
         },
       };
-    case "LEAVE_ROOM":
-      return initialState;
+    case "ADD_LISTEN":
+      return {
+        ...state,
+        listens: [...state.listens, ...payload],
+      };
+    default:
+      return state;
   }
 };
 
 const RoomWrapper = () => {
   const [state, dispatch] = useReducer(RoomReducer, initialState);
+  const stateRef = useRef(state);
   const params = useParams();
 
   const { displayName, photoURL, avatarColor } = useSelector(
@@ -286,8 +305,9 @@ const RoomWrapper = () => {
     } else {
       roomRef = push(ref(db));
     }
-
+    /** firebase路徑 roomId/users */
     const usersRef = child(roomRef.ref, "users");
+    /** firebase路徑 roomId/users/userId */
     const userRef = push(usersRef, {
       displayName,
       photoURL,
@@ -310,47 +330,55 @@ const RoomWrapper = () => {
       },
     });
 
-    onChildAdded(child(userRef.ref, "offers"), (snapshot) => {
-      const offer = snapshot.val();
-      if (offer) {
-        dispatch({
-          type: "RETURN_ANSWER",
-          payload: offer,
-        });
+    const listenOffers = onChildAdded(
+      child(userRef.ref, "offers"),
+      (snapshot) => {
+        const offer = snapshot.val();
+        if (offer) {
+          dispatch({
+            type: "RETURN_ANSWER",
+            payload: offer,
+          });
+        }
       }
-    });
-
-    onChildAdded(child(userRef.ref, "offerCandidates"), (snapshot) => {
-      const candidate = snapshot.val();
-      if (candidate) {
-        dispatch({
-          type: "ADD_CANDIDATES",
-          payload: candidate,
-        });
+    );
+    const listenOfferCandidates = onChildAdded(
+      child(userRef.ref, "offerCandidates"),
+      (snapshot) => {
+        const candidate = snapshot.val();
+        if (candidate) {
+          dispatch({
+            type: "ADD_CANDIDATES",
+            payload: candidate,
+          });
+        }
       }
-    });
-
-    onChildAdded(child(userRef.ref, "answers"), (snapshot) => {
-      const answer = snapshot.val();
-      if (answer) {
-        dispatch({
-          type: "SET_ANSWER",
-          payload: answer,
-        });
+    );
+    const listenAnswers = onChildAdded(
+      child(userRef.ref, "answers"),
+      (snapshot) => {
+        const answer = snapshot.val();
+        if (answer) {
+          dispatch({
+            type: "SET_ANSWER",
+            payload: answer,
+          });
+        }
       }
-    });
-
-    onChildAdded(child(userRef.ref, "answerCandidates"), (snapshot) => {
-      const candidate = snapshot.val();
-      if (candidate) {
-        dispatch({
-          type: "ADD_CANDIDATES",
-          payload: candidate,
-        });
+    );
+    const listenAnswerCandidates = onChildAdded(
+      child(userRef.ref, "answerCandidates"),
+      (snapshot) => {
+        const candidate = snapshot.val();
+        if (candidate) {
+          dispatch({
+            type: "ADD_CANDIDATES",
+            payload: candidate,
+          });
+        }
       }
-    });
-
-    onChildAdded(usersRef, (userInfo) => {
+    );
+    const listenUsers = onChildAdded(usersRef, (userInfo) => {
       const { control, ...rest } = userInfo.val();
       dispatch({
         type: "USER_JOINED",
@@ -360,16 +388,19 @@ const RoomWrapper = () => {
           userId: userInfo.key,
         },
       });
-      onChildChanged(child(userInfo.ref, "control"), (changeSetting) => {
-        dispatch({
-          type: "UPDATE_USERS",
-          payload: {
-            [changeSetting.key]: changeSetting.val(),
-            userId: userInfo.key,
-          },
-        });
-      });
-      onChildRemoved(userInfo.ref, () => {
+      const listenUserChangeSetting = onChildChanged(
+        child(userInfo.ref, "control"),
+        (changeSetting) => {
+          dispatch({
+            type: "UPDATE_USERS",
+            payload: {
+              [changeSetting.key]: changeSetting.val(),
+              userId: userInfo.key,
+            },
+          });
+        }
+      );
+      const listenUserLeaved = onChildRemoved(userInfo.ref, () => {
         dispatch({
           type: "USER_LEAVED",
           payload: {
@@ -377,6 +408,21 @@ const RoomWrapper = () => {
           },
         });
       });
+      dispatch({
+        type: "ADD_LISTEN",
+        payload: [listenUserChangeSetting, listenUserLeaved],
+      });
+    });
+
+    dispatch({
+      type: "ADD_LISTEN",
+      payload: [
+        listenOffers,
+        listenOfferCandidates,
+        listenAnswers,
+        listenAnswerCandidates,
+        listenUsers,
+      ],
     });
   };
 
@@ -391,7 +437,7 @@ const RoomWrapper = () => {
         newSetting
       );
     },
-    [state?.roomId, state?.currentUser?.userId]
+    [state.roomId, state.currentUser.userId]
   );
 
   const openDrawer = (newTab) => {
@@ -407,9 +453,9 @@ const RoomWrapper = () => {
     });
   };
 
-  const leavedRoom = useCallback(async () => {
-    await remove(ref(db, `${state.roomId}/users/${state.currentUser.userId}`));
-  }, [state?.roomId, state.currentUser?.userId]);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     const init = async () => {
@@ -417,15 +463,25 @@ const RoomWrapper = () => {
       await joinRoom(params?.roomId);
     };
     init();
-
-    return () => {};
-  }, []);
-
-  useEffect(() => {
     return () => {
-      state.stream?.getTracks().forEach((track) => track.stop());
+      const { roomId, stream, listens, currentUser, users } = stateRef.current;
+      stream?.getTracks().forEach((track) => track.stop());
+      Object.entries(users).forEach(([_, { peerConnection, remoteStream }]) => {
+        if (peerConnection) {
+          peerConnection.close();
+        }
+        if (remoteStream) {
+          remoteStream?.getTracks().forEach((track) => track.stop());
+        }
+      });
+      listens.forEach((unsubscribe) => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      });
+      remove(ref(db, `${roomId}/users/${currentUser.userId}`));
     };
-  }, [state.stream]);
+  }, []);
 
   if (!params?.roomId && state.roomId) {
     return <Navigate to={`/room/${state.roomId}`} replace />;
@@ -438,7 +494,6 @@ const RoomWrapper = () => {
         changeSetting,
         openDrawer,
         closeDrawer,
-        leavedRoom,
       }}
     >
       {state.loading ? <Loading /> : <Outlet />}

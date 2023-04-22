@@ -23,7 +23,6 @@ const Room = () => {
     openDrawer,
     closeDrawer,
     changeSetting,
-    leavedRoom,
     stream,
     drawer: { isOpen, tab },
     currentUser: { micMute, videoOff },
@@ -110,8 +109,7 @@ const Room = () => {
           <VideoIconButton
             mute
             tooltip="掛斷"
-            onClick={async () => {
-              await leavedRoom();
+            onClick={() => {
               navigate(`/`);
             }}
           >
